@@ -22,7 +22,6 @@ class DQN:
             self.Q_values = tf.layers.dense(inputs=outp, units=action_space.n,
                                         activation=None, name='output')
             self.targetQ = tf.placeholder(shape=[None], dtype=tf.float32, name="targetQ_ph")
-            # TODO: dobavit onehot vektor dla dejstvij
             self.actions = tf.placeholder(dtype=tf.float32, [None], name='actions')
             self.actions_onehot = tf.one_hot(self.actions, action_space.n, axis=1)
             self.Q = tf.reduce_sum(tf.multiply(self.Q_values, self.actions_onehot), axis=1)

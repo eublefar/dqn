@@ -28,14 +28,17 @@ if __name__=="__main__":
                     batch_size=batch_size, pixels = True)
     main = dqn.DQN(env.observation_space, env.action_space,
                     batch_size=batch_size, pixels = True)
-    total_reward = tf.Variable(initial_value=0, trainable=False, name="total_reward")
     exp_buffer = dqn.experience_buffer()
-
     apply_update_op = target.applyUpdate(main, tau)
-
+    total_reward = tf.Variable(initial_value=0, trainable=False, name="total_reward")
     init = tf.global_variables_initializer()
     saver = tf.train.Saver()
     writer = tf.summary.FileWriter('/tmp/dqn/1')
+    writer.add_graph(tf.get_default_graph())
+    for var in tf.trainable_variables(scope="DQN_.*"):
+        tf.summary.histogram(var.name, var)
+    tf.summary.scalar(total_reward.name, total_reward)
+    summary_op = tf.summary.merge_all()
 
     num_steps = 0
 # Reproductableness for the win
@@ -49,13 +52,6 @@ if __name__=="__main__":
         if restore_model:
             ckpt = tf.train.get_checkpoint_state(restore_dir)
             saver.restore(session,ckpt.model_checkpoint_path)
-
-        writer.add_graph(session.graph)
-        total_reward = tf.Variable(initial_value=0, trainable=False, name="total_reward")
-        for var in tf.global_variables():
-            tf.summary.scalar(var.name, var)
-        summary_op = tf.summary.merge_all()
-
         for episode in range(num_episodes):
             episode_buffer = dqn.experience_buffer()
             obs = env.reset()
