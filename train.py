@@ -28,6 +28,7 @@ if __name__=="__main__":
                     batch_size=batch_size, pixels = True)
     main = dqn.DQN(env.observation_space, env.action_space,
                     batch_size=batch_size, pixels = True)
+    total_reward = tf.Variable(initial_value=0, trainable=False, name="total_reward")
     exp_buffer = dqn.experience_buffer()
 
     apply_update_op = target.applyUpdate(main, tau)
@@ -50,6 +51,7 @@ if __name__=="__main__":
             saver.restore(session,ckpt.model_checkpoint_path)
 
         writer.add_graph(session.graph)
+        total_reward = tf.Variable(initial_value=0, trainable=False, name="total_reward")
         for var in tf.global_variables():
             tf.summary.scalar(var.name, var)
         summary_op = tf.summary.merge_all()
@@ -59,6 +61,7 @@ if __name__=="__main__":
             obs = env.reset()
             ep_steps = 0
             done = False
+            session.run(total_reward.assign(0))
             if episode%checkpoint_episode_num == 0:
                 saver.save(session, restore_dir)
             while not done:
@@ -71,6 +74,7 @@ if __name__=="__main__":
                     action = np.argmax(session.run(main.Q_output, feed_dict={main.input:obs}))
 
                 obs_next, reward, done, _ = env.step(action)
+                session.run(tf.assign_add(total_reward, reward))
                 episode_buffer.add((obs,action,reward,obs_next))
 
                 if num_steps >= num_pretrain_steps:
