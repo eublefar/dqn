@@ -79,13 +79,13 @@ if __name__=="__main__":
                         next_Q = session.run(target.Q_output,
                         feed_dict={target.input:np.stack(batch[:,3])})
                         targetQ = batch[:,2] + discound*np.max(next_Q, 1)
-                        session.run(apply_update_op)
                         session.run(main.updateModel,
                         feed_dict={
                             main.input:np.stack(batch[:,0]),
                             main.targetQ: targetQ,
                             main.actions:batch[:,1]
                         })
+                        session.run(apply_update_op)
                         eps -= eps_step
                     except ValueError:
                         print_debug_info()
