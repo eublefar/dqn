@@ -28,6 +28,7 @@ if __name__=="__main__":
                     batch_size=batch_size, pixels = True)
     main = dqn.DQN(env.observation_space, env.action_space,
                     batch_size=batch_size, pixels = True)
+    exp_buffer = dqn.experience_buffer()
 
     apply_update_op = target.applyUpdate(main, tau)
 
@@ -54,7 +55,7 @@ if __name__=="__main__":
         summary_op = tf.summary.merge_all()
 
         for episode in range(num_episodes):
-            exp_buffer = dqn.experience_buffer()
+            episode_buffer = dqn.experience_buffer()
             obs = env.reset()
             ep_steps = 0
             done = False
@@ -67,24 +68,27 @@ if __name__=="__main__":
                 if num_steps <= num_pretrain_steps or np.random.random_sample() < eps:
                     action = env.action_space.sample()
                 else:
-                    action = np.argmax(session.run(main.Q, feed_dict={main.input:obs}))
+                    action = np.argmax(session.run(main.Q_output, feed_dict={main.input:obs}))
 
                 obs_next, reward, done, _ = env.step(action)
-                exp_buffer.add((obs,action,reward,obs_next))
+                episode_buffer.add((obs,action,reward,obs_next))
 
                 if num_steps >= num_pretrain_steps:
                     try:
                         batch = exp_buffer.sample(batch_size)
-                        next_Q = session.run(target.Q, feed_dict={target.input:np.stack(batch[:,3])})
+                        next_Q = session.run(target.Q_output,
+                        feed_dict={target.input:np.stack(batch[:,3])})
                         targetQ = batch[:,2] + discound*np.max(next_Q, 1)
                         session.run(apply_update_op)
-
-                        session.run(main.updateModel, feed_dict={main.input:np.stack(batch[:,0]), main.targetQ: targetQ})
-                        print(tarassas)
+                        session.run(main.updateModel,
+                        feed_dict={
+                            main.input:np.stack(batch[:,0]),
+                            main.targetQ: targetQ,
+                            main.actions:batch[:,1]
+                        })
                         eps -= eps_step
                     except ValueError:
-                        print (num_steps, ep_steps, batch[:,3])
-                        print(target.Q.get_shape().as_list(), batch[:,2])
+                        print_debug_info()
                         raise
 
                 obs = obs_next
@@ -94,4 +98,17 @@ if __name__=="__main__":
                 # summary = session.run(summary_op)
                 # writer.add_summary(summary, num_steps)
                 # env.render()
-                # TODO: Dodelat' summary, poreshat' s pretraining steps i degradaciej epsilon
+            exp_buffer.add(episode_buffer)
+
+def print_debug_info():
+    print ("""
+                Number of steps = {1}\n
+                Episode steps = {2}\n
+                experience batch shape = {3}\n
+                Q_output shape = {4}\n
+                batch reward sum = {5}\n
+            """.format(num_steps,
+                ep_steps,
+                batch[:,3].shape,
+                target.Q.get_shape().as_list(),
+                np.sum(batch[:,2])))

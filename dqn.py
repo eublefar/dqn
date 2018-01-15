@@ -19,10 +19,13 @@ class DQN:
             batch_shape = [None,] + list(observation_space.shape)
             self.input = tf.placeholder(dtype=tf.float32, shape=batch_shape, name="input")
             outp = self._defineModel(self.input)
-            self.Q = tf.layers.dense(inputs=outp, units=action_space.n,
+            self.Q_values = tf.layers.dense(inputs=outp, units=action_space.n,
                                         activation=None, name='output')
             self.targetQ = tf.placeholder(shape=[None], dtype=tf.float32, name="targetQ_ph")
             # TODO: dobavit onehot vektor dla dejstvij
+            self.actions = tf.placeholder(dtype=tf.float32, [None], name='actions')
+            self.actions_onehot = tf.one_hot(self.actions, action_space.n, axis=1)
+            self.Q = tf.reduce_sum(tf.multiply(self.Q_values, self.actions_onehot), axis=1)
             self.loss = tf.reduce_mean(tf.square(self.targetQ - self.Q))
             self._trainer = tf.train.AdamOptimizer(learning_rate=0.0001)
             self.updateModel = self._trainer.minimize(self.loss)
