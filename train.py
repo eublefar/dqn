@@ -30,7 +30,8 @@ if __name__=="__main__":
                     batch_size=batch_size, pixels = True)
     exp_buffer = dqn.experience_buffer()
     apply_update_op = target.applyUpdate(main, tau)
-    total_reward = tf.Variable(initial_value=0, trainable=False, name="total_reward")
+    total_reward = tf.Variable(initial_value=0, trainable=False,
+                               name="total_reward", dtype=tf.float32)
     init = tf.global_variables_initializer()
     saver = tf.train.Saver()
     writer = tf.summary.FileWriter('/tmp/dqn/1')
@@ -49,6 +50,7 @@ if __name__=="__main__":
 
     with tf.Session() as session:
         session.run(init)
+
         if restore_model:
             ckpt = tf.train.get_checkpoint_state(restore_dir)
             saver.restore(session,ckpt.model_checkpoint_path)
@@ -63,12 +65,11 @@ if __name__=="__main__":
             while not done:
                 num_steps+=1
                 ep_steps+=1
-
                 if num_steps <= num_pretrain_steps or np.random.random_sample() < eps:
                     action = env.action_space.sample()
                 else:
+                    print(batch[:,1])
                     action = np.argmax(session.run(main.Q_output, feed_dict={main.input:obs}))
-
                 obs_next, reward, done, _ = env.step(action)
                 session.run(tf.assign_add(total_reward, reward))
                 episode_buffer.add((obs,action,reward,obs_next))
@@ -85,20 +86,19 @@ if __name__=="__main__":
                             main.targetQ: targetQ,
                             main.actions:batch[:,1]
                         })
+
                         session.run(apply_update_op)
                         eps -= eps_step
                     except ValueError:
                         print_debug_info()
                         raise
-
                 obs = obs_next
-
                 if ep_steps >= num_steps_per_episode:
                     done = True
-                # summary = session.run(summary_op)
-                # writer.add_summary(summary, num_steps)
-                # env.render()
-            exp_buffer.add(episode_buffer)
+                summary = session.run(summary_op)
+                writer.add_summary(summary, num_steps)
+                env.render()
+            exp_buffer.add(episode_buffer.buffer)
 
 def print_debug_info():
     print ("""

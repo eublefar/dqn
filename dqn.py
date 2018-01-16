@@ -17,14 +17,26 @@ class DQN:
         with tf.variable_scope('DQN_%d'%(self.id,)):
             self.batch_size = batch_size
             batch_shape = [None,] + list(observation_space.shape)
-            self.input = tf.placeholder(dtype=tf.float32, shape=batch_shape, name="input")
+            self.input = tf.placeholder(dtype=tf.float32,
+                                        shape=batch_shape,
+                                        name="input")
             outp = self._defineModel(self.input)
-            self.Q_values = tf.layers.dense(inputs=outp, units=action_space.n,
-                                        activation=None, name='output')
-            self.targetQ = tf.placeholder(shape=[None], dtype=tf.float32, name="targetQ_ph")
-            self.actions = tf.placeholder(dtype=tf.float32, [None], name='actions')
-            self.actions_onehot = tf.one_hot(self.actions, action_space.n, axis=1)
-            self.Q = tf.reduce_sum(tf.multiply(self.Q_values, self.actions_onehot), axis=1)
+            self.Q_values = tf.layers.dense(inputs=outp,
+                                            units=action_space.n,
+                                            activation=None,
+                                            name='output')
+            self.targetQ = tf.placeholder(shape=[None],
+                                          dtype=tf.float32,
+                                          name="targetQ_ph")
+            self.actions = tf.placeholder(dtype=tf.float32,
+                                          shape=[None],
+                                          name='actions')
+            self.actions_onehot = tf.one_hot(tf.to_int32(self.actions),
+                                             action_space.n,
+                                             axis=1,
+                                             dtype=tf.float32)
+            self.Q = tf.reduce_sum(tf.multiply(self.Q_values, self.actions_onehot),
+                                               axis=1)
             self.loss = tf.reduce_mean(tf.square(self.targetQ - self.Q))
             self._trainer = tf.train.AdamOptimizer(learning_rate=0.0001)
             self.updateModel = self._trainer.minimize(self.loss)
