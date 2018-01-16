@@ -12,7 +12,7 @@ if __name__=="__main__":
     restore_model = False
     restore_dir = 'checkpoints/checkpoint_0.ckpt'
     num_episodes = 10000
-    num_pretrain_steps = 10000
+    num_pretrain_steps = 700
     num_steps_per_episode = 100000
     eps_high = 1.
     eps_low = 0.1
@@ -68,8 +68,8 @@ if __name__=="__main__":
                 if num_steps <= num_pretrain_steps or np.random.random_sample() < eps:
                     action = env.action_space.sample()
                 else:
-                    print(batch[:,1])
-                    action = np.argmax(session.run(main.Q_output, feed_dict={main.input:obs}))
+                    action = np.argmax(session.run(main.Q_values,
+                    feed_dict={main.input:obs.reshape((1,) + obs.shape)}))
                 obs_next, reward, done, _ = env.step(action)
                 session.run(tf.assign_add(total_reward, reward))
                 episode_buffer.add((obs,action,reward,obs_next))
@@ -77,7 +77,7 @@ if __name__=="__main__":
                 if num_steps >= num_pretrain_steps:
                     try:
                         batch = exp_buffer.sample(batch_size)
-                        next_Q = session.run(target.Q_output,
+                        next_Q = session.run(target.Q_values,
                         feed_dict={target.input:np.stack(batch[:,3])})
                         targetQ = batch[:,2] + discound*np.max(next_Q, 1)
                         session.run(main.updateModel,
@@ -90,25 +90,21 @@ if __name__=="__main__":
                         session.run(apply_update_op)
                         eps -= eps_step
                     except ValueError:
-                        print_debug_info()
+                        print ("""
+                                    Number of steps = {1}\n
+                                    Episode steps = {2}\n
+                                    experience batch shape = {3}\n
+                                    Q_output shape = {4}\n
+                                    batch reward sum = {5}\n
+                                """.format(num_steps,
+                                    ep_steps,
+                                    batch[:,3].shape,
+                                    np.sum(batch[:,2])))
                         raise
                 obs = obs_next
                 if ep_steps >= num_steps_per_episode:
                     done = True
+            exp_buffer.add(episode_buffer.buffer)
+            if num_steps >= num_pretrain_steps:
                 summary = session.run(summary_op)
                 writer.add_summary(summary, num_steps)
-                env.render()
-            exp_buffer.add(episode_buffer.buffer)
-
-def print_debug_info():
-    print ("""
-                Number of steps = {1}\n
-                Episode steps = {2}\n
-                experience batch shape = {3}\n
-                Q_output shape = {4}\n
-                batch reward sum = {5}\n
-            """.format(num_steps,
-                ep_steps,
-                batch[:,3].shape,
-                target.Q.get_shape().as_list(),
-                np.sum(batch[:,2])))
