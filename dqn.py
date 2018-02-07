@@ -53,17 +53,16 @@ class DQN:
 
     def _defineModel(self, inp):
         # inp = tf.reshape(tensor=inp, shape=inp.get_shape().as_list()+[1,])
-        conv1 = tf.layers.conv2d(inputs=inp, kernel_size=[1,1],
+        conv1 = tf.layers.conv2d(inputs=inp, kernel_size=[7,7],
                                 filters=32, activation=tf.nn.relu, name='conv1')
-        conv2 = tf.layers.conv2d(inputs=conv1, kernel_size=[1,1],
+        max_pool1 = tf.layers.max_pooling2d(conv1, [3,3], [3,3], 'same')
+        conv2 = tf.layers.conv2d(inputs=max_pool1, kernel_size=[5,5],
                                 filters=32, activation=tf.nn.relu, name='conv2')
-        conv3 = tf.layers.conv2d(inputs=conv2, kernel_size=[1,5],
-                                filters=16, activation=tf.nn.relu, name='conv3')
-        max_pool = tf.layers.max_pooling2d(conv3, [3,1], [3,1], 'same')
-        conv4 = tf.layers.conv2d(inputs=max_pool, kernel_size=[7,1],
+        max_pool2 = tf.layers.max_pooling2d(conv2, [2,2], [2,2], 'same')
+        conv4 = tf.layers.conv2d(inputs=max_pool2, kernel_size=[7,1],
                                 filters=16, activation=tf.nn.relu, name='conv4')
-        max_pool1 = tf.layers.max_pooling2d(conv4, [1,3], [1,3], 'same')
-        flat = tf.layers.flatten(max_pool1)
+        max_pool3 = tf.layers.max_pooling2d(conv4, [2,2], [2,2], 'same')
+        flat = tf.layers.flatten(max_pool3)
         dense1 = tf.layers.dense(inputs=flat, units=512,
                                 activation=tf.nn.relu, name='dense1')
         return dense1
@@ -74,30 +73,3 @@ class DQN:
         dense2 = tf.layers.dense(inputs=dense1, units=512,
                                 activation=tf.nn.relu, name='dense2')
         return dense2
-
-class experience_buffer:
-    def __init__(self, buffer_size=100000):
-        self.buffer = []
-        self.buffer_size = buffer_size
-        self.iter = iter(self.buffer)
-        self.i=0
-
-    def add(self, experience):
-        if np.array(experience).ndim == 1:
-            if len(self.buffer) + 1 >= self.buffer_size:
-                self.buffer[0:1] = []
-            self.buffer.append(experience)
-        else:
-            if len(self.buffer) + len(experience) >= self.buffer_size:
-                self.buffer[0:(len(experience)+len(self.buffer))-self.buffer_size] = []
-            self.buffer.extend(experience)
-
-    def sample(self,size):
-        try:
-            if size <= len(self.buffer):
-                return np.reshape(np.array(np.random.permutation(self.buffer)[0:size]),[size,4])
-            else:
-                return np.reshape(np.array(np.random.permutation(self.buffer)[0:size]),[-1,4])
-        except ValueError:
-            print(size <= len(self.buffer))
-            raise

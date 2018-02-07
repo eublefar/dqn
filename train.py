@@ -4,37 +4,39 @@ import tensorflow as tf
 import dqn
 import numpy as np
 
+def train( env_name = 'SpaceInvaders-v0'
+        restore_model = False,
+        render = False,
+        save_dir = 'checkpoints/checkpoint_0.ckpt',
+        summary_dir = '/tmp/dqn/1',
+        restore_dir = None,
+        num_episodes = 10000,
+        num_pretrain_steps = 10000,
+        num_steps_per_episode = 100000,
+        eps_high = 1.,
+        eps_low = 0.1,
+        eps_degrade_steps = 500000,
+        checkpoint_episode_num = 50,
+        batch_size=10,
+        tau = 0.001,
+        discound = 0.8):
 
-if __name__=="__main__":
-
-    env = gym.make('SpaceInvaders-v0')
-
-    restore_model = False
-    restore_dir = 'checkpoints/checkpoint_0.ckpt'
-    num_episodes = 10000
-    num_pretrain_steps = 700
-    num_steps_per_episode = 100000
-    eps_high = 1.
-    eps_low = 0.1
-    eps_degrade_steps = 10000
+    env = gym.make(env_name)
     eps = eps_high
     eps_step = (eps_high - eps_low)/eps_degrade_steps
-    checkpoint_episode_num = 50
-    batch_size=10
-    tau = 0.001
-    discound = 0.8
 
     target = dqn.DQN(env.observation_space, env.action_space,
                     batch_size=batch_size, pixels = True)
     main = dqn.DQN(env.observation_space, env.action_space,
                     batch_size=batch_size, pixels = True)
+
     exp_buffer = dqn.experience_buffer()
     apply_update_op = target.applyUpdate(main, tau)
     total_reward = tf.Variable(initial_value=0, trainable=False,
                                name="total_reward", dtype=tf.float32)
     init = tf.global_variables_initializer()
     saver = tf.train.Saver()
-    writer = tf.summary.FileWriter('/tmp/dqn/1')
+    writer = tf.summary.FileWriter(summary_dir)
     writer.add_graph(tf.get_default_graph())
     for var in tf.trainable_variables(scope="DQN_.*"):
         tf.summary.histogram(var.name, var)
@@ -42,7 +44,7 @@ if __name__=="__main__":
     summary_op = tf.summary.merge_all()
 
     num_steps = 0
-# Reproductableness for the win
+# Reproducibility for the win
     seed = 7
     tf.set_random_seed(seed)
     np.random.seed(seed)
@@ -52,8 +54,7 @@ if __name__=="__main__":
         session.run(init)
 
         if restore_model:
-            ckpt = tf.train.get_checkpoint_state(restore_dir)
-            saver.restore(session,ckpt.model_checkpoint_path)
+            saver.restore(session, restore_dir)
         for episode in range(num_episodes):
             episode_buffer = dqn.experience_buffer()
             obs = env.reset()
@@ -102,6 +103,8 @@ if __name__=="__main__":
                                     np.sum(batch[:,2])))
                         raise
                 obs = obs_next
+                if render:
+                    env.render()
                 if ep_steps >= num_steps_per_episode:
                     done = True
             exp_buffer.add(episode_buffer.buffer)
