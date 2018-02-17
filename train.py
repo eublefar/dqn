@@ -1,11 +1,11 @@
 from gym import spaces
 import gym
 import tensorflow as tf
-import dqn
 import numpy as np
+import dqn
+from util import experience_buffer
 
-def train( env_name = 'SpaceInvaders-v0'
-        restore_model = False,
+def train(env_name = 'SpaceInvaders-v0',
         render = False,
         save_dir = 'checkpoints/checkpoint_0.ckpt',
         summary_dir = '/tmp/dqn/1',
@@ -19,18 +19,24 @@ def train( env_name = 'SpaceInvaders-v0'
         checkpoint_episode_num = 50,
         batch_size=10,
         tau = 0.001,
-        discound = 0.8):
+        discount = 0.8,
+        seed = 7):
+
 
     env = gym.make(env_name)
     eps = eps_high
     eps_step = (eps_high - eps_low)/eps_degrade_steps
+    # Reproducibility for the win
+    tf.set_random_seed(seed)
+    np.random.seed(seed)
+    env.seed(seed)
 
     target = dqn.DQN(env.observation_space, env.action_space,
                     batch_size=batch_size, pixels = True)
     main = dqn.DQN(env.observation_space, env.action_space,
                     batch_size=batch_size, pixels = True)
 
-    exp_buffer = dqn.experience_buffer()
+    exp_buffer = experience_buffer()
     apply_update_op = target.applyUpdate(main, tau)
     total_reward = tf.Variable(initial_value=0, trainable=False,
                                name="total_reward", dtype=tf.float32)
@@ -44,16 +50,12 @@ def train( env_name = 'SpaceInvaders-v0'
     summary_op = tf.summary.merge_all()
 
     num_steps = 0
-# Reproducibility for the win
-    seed = 7
-    tf.set_random_seed(seed)
-    np.random.seed(seed)
-    env.seed(seed)
+
 
     with tf.Session() as session:
         session.run(init)
 
-        if restore_model:
+        if restore_dir is not None:
             saver.restore(session, restore_dir)
         for episode in range(num_episodes):
             episode_buffer = dqn.experience_buffer()
@@ -80,7 +82,7 @@ def train( env_name = 'SpaceInvaders-v0'
                         batch = exp_buffer.sample(batch_size)
                         next_Q = session.run(target.Q_values,
                         feed_dict={target.input:np.stack(batch[:,3])})
-                        targetQ = batch[:,2] + discound*np.max(next_Q, 1)
+                        targetQ = batch[:,2] + discount*np.max(next_Q, 1)
                         session.run(main.updateModel,
                         feed_dict={
                             main.input:np.stack(batch[:,0]),
