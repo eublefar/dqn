@@ -7,7 +7,7 @@ class DQN:
     _id = -1
 
     def __init__(self, observation_space, action_space,
-                batch_size=15, pixels = False):
+                batch_size=15, learning_rate = 0.0001, pixels = False):
         DQN._id+=1
         self.id = DQN._id
 
@@ -38,7 +38,7 @@ class DQN:
             self.Q = tf.reduce_sum(tf.multiply(self.Q_values, self.actions_onehot),
                                                axis=1)
             self.loss = tf.reduce_mean(tf.square(self.targetQ - self.Q))
-            self._trainer = tf.train.AdamOptimizer(learning_rate=0.0001)
+            self._trainer = tf.train.AdamOptimizer(learning_rate=learning_rate)
             self.updateModel = self._trainer.minimize(self.loss)
 
     def applyUpdate(self, source, tau):
