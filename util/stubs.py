@@ -15,7 +15,7 @@ def train(env_name = 'SpaceInvaders-v0',
         tau = 0.001,
         discount = 0.8):
     """Stub train function."""
-    print({
+    d = {
             "env_name":env_name,
             "render":render,
             "save_dir":save_dir,
@@ -31,4 +31,6 @@ def train(env_name = 'SpaceInvaders-v0',
             "batch_size":batch_size,
             "tau":tau,
             "discount":discount
-    })
+    }
+    for key, val in d.items():
+        print("{}={}".format(key,val))

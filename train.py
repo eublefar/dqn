@@ -7,8 +7,8 @@ from util import experience_buffer
 
 def train(env_name = 'SpaceInvaders-v0',
         render = False,
-        save_dir = 'checkpoints/checkpoint_0.ckpt',
-        summary_dir = '/tmp/dqn/1',
+        save_dir = 'checkpoints/',
+        summary_dir = '/tmp/dqn/',
         restore_dir = None,
         num_episodes = 10000,
         num_pretrain_steps = 10000,
@@ -24,6 +24,7 @@ def train(env_name = 'SpaceInvaders-v0',
 
 
     env = gym.make(env_name)
+    env.mode = "batch"
     eps = eps_high
     eps_step = (eps_high - eps_low)/eps_degrade_steps
     # Reproducibility for the win
@@ -37,15 +38,19 @@ def train(env_name = 'SpaceInvaders-v0',
                     batch_size=batch_size, pixels = True)
 
     exp_buffer = experience_buffer()
+
     apply_update_op = target.applyUpdate(main, tau)
-    total_reward = tf.Variable(initial_value=0, trainable=False,
-                               name="total_reward", dtype=tf.float32)
+
+
     init = tf.global_variables_initializer()
     saver = tf.train.Saver()
+
     writer = tf.summary.FileWriter(summary_dir)
     writer.add_graph(tf.get_default_graph())
     for var in tf.trainable_variables(scope="DQN_.*"):
         tf.summary.histogram(var.name, var)
+    total_reward = tf.Variable(initial_value=0, trainable=False,
+                               name="total_reward", dtype=tf.float32)
     tf.summary.scalar(total_reward.name, total_reward)
     summary_op = tf.summary.merge_all()
 
@@ -57,14 +62,16 @@ def train(env_name = 'SpaceInvaders-v0',
 
         if restore_dir is not None:
             saver.restore(session, restore_dir)
+
         for episode in range(num_episodes):
-            episode_buffer = dqn.experience_buffer()
+            # Prepaire for the episode
+            episode_buffer = experience_buffer()
             obs = env.reset()
             ep_steps = 0
             done = False
             session.run(total_reward.assign(0))
             if episode%checkpoint_episode_num == 0:
-                saver.save(session, restore_dir)
+                saver.save(session, save_dir)
             while not done:
                 num_steps+=1
                 ep_steps+=1
@@ -78,32 +85,20 @@ def train(env_name = 'SpaceInvaders-v0',
                 episode_buffer.add((obs,action,reward,obs_next))
 
                 if num_steps >= num_pretrain_steps:
-                    try:
-                        batch = exp_buffer.sample(batch_size)
-                        next_Q = session.run(target.Q_values,
-                        feed_dict={target.input:np.stack(batch[:,3])})
-                        targetQ = batch[:,2] + discount*np.max(next_Q, 1)
-                        session.run(main.updateModel,
-                        feed_dict={
-                            main.input:np.stack(batch[:,0]),
-                            main.targetQ: targetQ,
-                            main.actions:batch[:,1]
-                        })
+                    batch = exp_buffer.sample(batch_size)
+                    next_Q = session.run(target.Q_values,
+                    feed_dict={target.input:np.stack(batch[:,3])})
+                    targetQ = batch[:,2] + discount*np.max(next_Q, 1)
+                    session.run(main.updateModel,
+                    feed_dict={
+                        main.input:np.stack(batch[:,0]),
+                        main.targetQ: targetQ,
+                        main.actions:batch[:,1]
+                    })
 
-                        session.run(apply_update_op)
-                        eps -= eps_step
-                    except ValueError:
-                        print ("""
-                                    Number of steps = {1}\n
-                                    Episode steps = {2}\n
-                                    experience batch shape = {3}\n
-                                    Q_output shape = {4}\n
-                                    batch reward sum = {5}\n
-                                """.format(num_steps,
-                                    ep_steps,
-                                    batch[:,3].shape,
-                                    np.sum(batch[:,2])))
-                        raise
+                    session.run(apply_update_op)
+                    eps -= eps_step
+
                 obs = obs_next
                 if render:
                     env.render()

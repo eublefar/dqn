@@ -1,6 +1,7 @@
 import argparse
-# from train import train
-from util.stubs import train
+from train import train
+# from util.stubs import train
+import util
 
 parser = argparse.ArgumentParser(description="""Deep Q network executed
                                             on Atari gym environments""")
@@ -8,7 +9,7 @@ parser.add_argument("--render", nargs=1, dest="render", type=bool,
                 default=False,
                 help="If true, renders the environment")
 parser.add_argument("--num-episodes", nargs=1, dest="num_episodes", type=int,
-                default=10000,
+                default=300,
                 help="""number of episodes to run""")
 parser.add_argument("--num-steps-per-episode", nargs=1, dest="num_steps_per_episode", type=int,
                 default=10000,
@@ -23,7 +24,7 @@ parser.add_argument("--save-dir", nargs=1, dest="save_dir", type=str,
                         By default checkpoints are saved in checkpoints/.
                         Directory si augmented with param string if such exists""")
 parser.add_argument("--summary-dir", nargs=1, dest="summary_dir", type=str,
-                default="/tmp/dqn/1",
+                default="/tmp/dqn/",
                 help="""Specifies the main directory where summaries are saved.
                         Directory is augmented with param string if such exists""")
 parser.add_argument("--restore-dir", nargs="+", dest="restore_dir", type=str,
@@ -55,33 +56,30 @@ parser.add_argument("--update-coef", nargs="+", dest="tau", type=float,
 parser.add_argument("--discount", nargs="+", dest="discount", type=float,
                 default=0.9,
                 help="""Reward time discount. Ensures finite total reward.""")
-params = parser.parse_args()
-
 
 
 if __name__=="__main__":
-    list_of_params = []
-    for key, value in vars(params).items():
-        if hasattr(value, '__iter__') and type(value) is not str:
-            for x in value:
-                p = argparse.Namespace(**vars(params))
-                setattr(p, key, x)
-                list_of_params.append(p)
+    params = parser.parse_args()
 
-    for v in list_of_params:
-        print("Starting training with parameters: {}".format(v))
-        train(v.env_name,
-            v.render,
-            v.save_dir,
-            v.summary_dir,
-            v.restore_dir,
-            v.num_episodes,
-            v.num_pretrain_steps,
-            v.num_steps_per_episode,
-            v.eps_high,
-            v.eps_low,
-            v.eps_degrade_steps,
-            v.checkpoint_episode_num,
-            v.batch_size,
-            v.tau,
-            v.discount)
+    list_of_param_namespaces = util.create_list_of_param_namespaces(params)
+    for v in list_of_param_namespaces:
+        param_string = util.build_param_string(v)
+        print("Starting training with parameters: {}".format(param_string))
+        try:
+            train(v.env_name,
+                v.render,
+                v.save_dir + param_string + "/checkpoint.cpkg",
+                v.summary_dir + param_string + "/",
+                v.restore_dir,
+                v.num_episodes,
+                v.num_pretrain_steps,
+                v.num_steps_per_episode,
+                v.eps_high,
+                v.eps_low,
+                v.eps_degrade_steps,
+                v.checkpoint_episode_num,
+                v.batch_size,
+                v.tau,
+                v.discount)
+        except KeyboardInterrupt:
+            print("Stopping execution. Starting next param list..")
