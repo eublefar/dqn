@@ -82,13 +82,13 @@ def train(env_name = 'SpaceInvaders-v0',
                     feed_dict={main.input:obs.reshape((1,) + obs.shape)}))
                 obs_next, reward, done, _ = env.step(action)
                 session.run(tf.assign_add(total_reward, reward))
-                episode_buffer.add((obs,action,reward,obs_next))
+                episode_buffer.add((obs,action,reward,obs_next, done))
 
                 if num_steps >= num_pretrain_steps:
                     batch = exp_buffer.sample(batch_size)
                     next_Q = session.run(target.Q_values,
                     feed_dict={target.input:np.stack(batch[:,3])})
-                    targetQ = batch[:,2] + discount*np.max(next_Q, 1)
+                    targetQ = np.where(batch[:,4], batch[:,2], batch[:,2] + discount*np.max(next_Q, 1))
                     session.run(main.updateModel,
                     feed_dict={
                         main.input:np.stack(batch[:,0]),
