@@ -15,7 +15,7 @@ parser.add_argument("--num-steps-per-episode", nargs=1, dest="num_steps_per_epis
                 default=10000,
                 help="""number of episodes to run""")
 parser.add_argument("--num-pretrain-steps", nargs=1, dest="num_pretrain_steps", type=int,
-                default=10000,
+                default=5000,
                 help="""number of episodes to run with random policy
                         before training model(to populate experience buffer)""")
 parser.add_argument("--save-dir", nargs=1, dest="save_dir", type=str,

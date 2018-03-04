@@ -4,6 +4,7 @@ import tensorflow as tf
 import numpy as np
 import dqn
 from util import experience_buffer
+from util.image_preproc import preprocess
 
 def train(env_name = 'SpaceInvaders-v0',
         render = False,
@@ -31,16 +32,20 @@ def train(env_name = 'SpaceInvaders-v0',
     tf.set_random_seed(seed)
     np.random.seed(seed)
     env.seed(seed)
-
-    target = dqn.DQN(env.observation_space, env.action_space,
-                    batch_size=batch_size, pixels = True)
-    main = dqn.DQN(env.observation_space, env.action_space,
+    observation_shape = list(env.observation_space.shape)
+# we replace image color channels with 4 sequential grayscale images
+    observation_shape[-1] = 4
+# shape after downsampling
+    observation_shape[0] /= 2
+    observation_shape[1] /= 2
+    target = dqn.DQN(observation_shape, env.action_space.n,
+                    batch_size=batch_size, pixels = True, trainable = False)
+    main = dqn.DQN(observation_shape, env.action_space.n,
                     batch_size=batch_size, pixels = True)
 
     exp_buffer = experience_buffer()
 
     apply_update_op = target.applyUpdate(main, tau)
-
 
     init = tf.global_variables_initializer()
     saver = tf.train.Saver()
@@ -63,27 +68,45 @@ def train(env_name = 'SpaceInvaders-v0',
         if restore_dir is not None:
             saver.restore(session, restore_dir)
 
+        last_observations = experience_buffer(buffer_size=4)
+
         for episode in range(num_episodes):
             # Prepaire for the episode
+            last_observations = experience_buffer(buffer_size=4)
+            last_observations_next = experience_buffer(buffer_size=4)
             episode_buffer = experience_buffer()
-            obs = env.reset()
+            last_observations.add((preprocess(env.reset()),))
             ep_steps = 0
             done = False
             session.run(total_reward.assign(0))
+
             if episode%checkpoint_episode_num == 0:
                 saver.save(session, save_dir)
+
             while not done:
                 num_steps+=1
                 ep_steps+=1
-                if num_steps <= num_pretrain_steps or np.random.random_sample() < eps:
+                if num_steps <= num_pretrain_steps \
+                   or np.random.random_sample() < eps \
+                   or not last_observations.full():
                     action = env.action_space.sample()
                 else:
                     action = np.argmax(session.run(main.Q_values,
-                    feed_dict={main.input:obs.reshape((1,) + obs.shape)}))
-                obs_next, reward, done, _ = env.step(action)
-                session.run(tf.assign_add(total_reward, reward))
-                episode_buffer.add((obs,action,reward,obs_next, done))
+                    feed_dict={main.input:
+                                np.expand_dims(
+                                np.stack(last_observations.buffer, axis=2),
+                                axis =0)}))
 
+                obs_next, reward, done, _ = env.step(action)
+                obs_next = preprocess(obs_next)
+                last_observations_next.add((obs_next,))
+
+                if last_observations.full() and last_observations_next.full():
+                    episode_buffer.add( (np.stack(last_observations.buffer, axis=2),
+                                        action,
+                                        reward,
+                                        np.stack(last_observations_next.buffer, axis=2),
+                                        done))
                 if num_steps >= num_pretrain_steps:
                     batch = exp_buffer.sample(batch_size)
                     next_Q = session.run(target.Q_values,
@@ -99,11 +122,12 @@ def train(env_name = 'SpaceInvaders-v0',
                     session.run(apply_update_op)
                     eps -= eps_step
 
-                obs = obs_next
+                last_observations.add((obs_next,))
                 if render:
                     env.render()
                 if ep_steps >= num_steps_per_episode:
                     done = True
+                session.run(tf.assign_add(total_reward, reward))
             exp_buffer.add(episode_buffer.buffer)
             if num_steps >= num_pretrain_steps:
                 summary = session.run(summary_op)
