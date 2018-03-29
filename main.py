@@ -68,8 +68,10 @@ if __name__=="__main__":
 
     list_of_param_namespaces = util.create_list_of_param_namespaces(params)
     for v in list_of_param_namespaces:
-        param_string = util.build_param_string(v)
+        param_string = util.build_param_string(parser, v)
         print("Starting training with parameters: {}".format(param_string))
+        v.save_dir += param_string + '/checkpoint.cpkg'
+        v.summary_dir += param_string + '/'
         try:
             with tf.Session() as sess:
                 trainer = Trainer.create_from_namespace(v, sess)

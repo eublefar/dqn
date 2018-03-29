@@ -1,6 +1,6 @@
 import numpy as np
 import argparse
-
+from blist import blist
 """
     Finds tensorflow variable named in a same way as one supplied.
 """
@@ -13,10 +13,8 @@ def map_dqn_var(var, to_iterable_vars, var_scope = "DQN_#/", iterable_scope = "D
 """
 class experience_buffer:
     def __init__(self, buffer_size=50000):
-        self.buffer = []
+        self.buffer = blist([])
         self.buffer_size = buffer_size
-        self.iter = iter(self.buffer)
-        self.i=0
 
     def add(self, experience):
         if np.asarray(experience).ndim == 1:
@@ -30,10 +28,8 @@ class experience_buffer:
 
     def sample(self,size):
         try:
-            if size <= len(self.buffer):
-                return np.asarray(np.random.permutation(self.buffer)[0:size])
-            else:
-                return np.asarray(np.random.permutation(self.buffer)[0:size])
+            idxs = np.random.randint(0, len(self.buffer), (size,))
+            return np.asarray(self.buffer)[idxs]
         except ValueError:
             print(size <= len(self.buffer))
             raise
@@ -49,11 +45,13 @@ class experience_buffer:
     Given the argparse namespace, creates a string with text representations of
     parameters joined with delimeter.
 """
-def build_param_string(param_namespace, delimiter=","):
+def build_param_string(parser ,param_namespace, delimiter=","):
     param_string = []
     param_string.append("env_name={}".format(param_namespace.env_name))
     for key,val in vars(param_namespace).items():
-        if type(val) is not str:
+        if type(val) is not str \
+        and val is not None\
+        and parser.get_default(key) != val:
             param_string.append("{}={}".format(key, val))
     return delimiter.join(param_string)
 

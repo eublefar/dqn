@@ -5,6 +5,8 @@ import numpy as np
 import dqn
 from util import experience_buffer
 from util.image_preproc import preprocess
+import _pickle as pcl
+import os.path
 
 
 class Trainer:
@@ -38,7 +40,8 @@ class Trainer:
                 tau,
                 discount,
                 seed,
-                session):
+                session,
+                pickle_file = "buffers.pkl"):
         self.env = gym.make(env_name)
         self.env.mode = "batch"
         self.seed(seed)
@@ -58,7 +61,7 @@ class Trainer:
                             self.env.action_space.n,
                             batch_size=batch_size,
                             pixels = True)
-        self.exp_buffer = experience_buffer(buffer_size=10000)
+        self.exp_buffer = experience_buffer(buffer_size=1000000)
         self.apply_update_op = self.target.applyUpdate(self.main, tau)
         self.init_op = tf.global_variables_initializer()
         self.saver = tf.train.Saver()
@@ -71,7 +74,7 @@ class Trainer:
         self.history_len = 4
         self.batch_size = batch_size
         self.discount = discount
-
+        self.pickle_file = pickle_file
 
     def seed(self, seed):
         tf.set_random_seed(seed)
@@ -108,8 +111,30 @@ class Trainer:
     def restore(self, restore_dir):
         self.saver.restore(self.session, restore_dir)
         self.tf_vars_initiated = True
+        exp_buffer_pickle = restore_dir + '/' + self.pickle_file
+        if os.path.isfile(exp_buffer_pickle):
+            with open(exp_buffer_pickle, 'r') as f:
+                self.exp_buffer, self.eps, self.eps_step = pcl.load(f)
 
     def train(self,
+              num_episodes,
+              num_pretrain_steps = 10000,
+              num_steps_per_episode = 10000,
+              checkpoint_episode_num = 10):
+        try:
+            self._train(num_episodes,
+                        num_pretrain_steps,
+                        num_steps_per_episode,
+                        checkpoint_episode_num)
+        except KeyboardInterrupt:
+            self.handle_interrupt()
+
+    def handle_interrupt(self):
+        with open(self.save_dir + '/' + self.pickle_file, 'w+') as p_file:
+            pcl.dump((self.exp_buffer, self.eps, self.eps_step), p_file)
+        self.saver.save(self.session, self.save_dir)
+
+    def _train(self,
               num_episodes,
               num_pretrain_steps = 10000,
               num_steps_per_episode = 10000,
@@ -174,7 +199,7 @@ class Trainer:
             action = np.argmax(self.session.run(self.main.Q_values,
             feed_dict={self.main.input:
                         np.expand_dims(
-                        np.stack(self.last_observations.buffer, axis=2),
+                        np.stack(self.last_observations.buffer, axis=2).astype(np.float32),
                         axis =0)}))
         return action
 
@@ -182,12 +207,12 @@ class Trainer:
         batch = self.exp_buffer.sample(self.batch_size)
         next_Q = self.session.run(self.target.Q_values,
                              feed_dict={
-                                 self.target.input : np.stack(batch[:,3])
+                                 self.target.input : np.stack(batch[:,3]).astype(np.float32)
                              })
         targetQ = np.where(batch[:,4], batch[:,2], batch[:,2] + self.discount*np.max(next_Q, 1))
         self.session.run(self.main.updateModel,
                     feed_dict={
-                        self.main.input:   np.stack(batch[:,0]),
+                        self.main.input:   np.stack(batch[:,0]).astype(np.float32),
                         self.main.targetQ: targetQ,
                         self.main.actions: batch[:,1]
                     })

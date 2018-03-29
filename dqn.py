@@ -7,7 +7,7 @@ class DQN:
     _id = -1
 
     def __init__(self, observation_space_shape, action_number,
-                batch_size=15, learning_rate = 0.0001, pixels = False, trainable = True):
+                batch_size=15, learning_rate = 0.001, pixels = False, trainable = True):
         DQN._id+=1
         self.id = DQN._id
 

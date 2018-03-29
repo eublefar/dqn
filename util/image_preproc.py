@@ -8,6 +8,6 @@ def downsample(img):
 
 def preprocess(img):
     # return np.expand_dims(to_grayscale(downsample(img)), axis = 2 )
-    return to_grayscale(downsample(img))
+    return to_grayscale(downsample(img)).astype(np.uint8)
 
 # command + python3 main.py --batch-size 30 --env-name BreakoutDeterministic-v4
