@@ -4,6 +4,9 @@ import argparse
 from trainer import Trainer
 import util
 import tensorflow as tf
+import gym
+import gym_moving_dot
+
 
 parser = argparse.ArgumentParser(description="""Deep Q network executed
                                             on Atari gym environments""")
@@ -51,6 +54,9 @@ parser.add_argument("--eps-degrade-steps", nargs="+", dest="eps_degrade_steps", 
                 help="""Steps for epsilon parameter to degrade""")
 parser.add_argument("--batch-size", nargs="+", dest="batch_size", type=int,
                 default=10,
+                help="""Batch size of experiences to train on""")
+parser.add_argument("--exp-buff-size", nargs="+", dest="exp_buff_size", type=int,
+                default=100000,
                 help="""Batch size of experiences to train on""")
 parser.add_argument("--update-coef", nargs="+", dest="tau", type=float,
                 default=0.0001,

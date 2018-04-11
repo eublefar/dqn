@@ -5,27 +5,16 @@ import numpy as np
 import dqn
 from util import experience_buffer
 from util.image_preproc import preprocess
+from util import getValidArgs
 import _pickle as pcl
-import os.path
+import os
 
 
 class Trainer:
 
     @classmethod
     def create_from_namespace(cls, parsed_args, session):
-        return cls(
-                    env_name = parsed_args.env_name,
-                    render = parsed_args.render,
-                    save_dir = parsed_args.save_dir,
-                    summary_dir = parsed_args.summary_dir,
-                    eps_high = parsed_args.eps_high,
-                    eps_low = parsed_args.eps_low,
-                    eps_degrade_steps = parsed_args.eps_degrade_steps,
-                    batch_size = parsed_args.batch_size,
-                    tau = parsed_args.tau,
-                    discount = parsed_args.discount,
-                    seed = parsed_args.seed,
-                    session = session)
+        return cls(**getValidArgs(cls.__init__, vars(parsed_args)), session = session)
 
 
     def __init__(self,
@@ -37,6 +26,7 @@ class Trainer:
                 eps_low,
                 eps_degrade_steps,
                 batch_size,
+                exp_buff_size,
                 tau,
                 discount,
                 seed,
@@ -61,7 +51,7 @@ class Trainer:
                             self.env.action_space.n,
                             batch_size=batch_size,
                             pixels = True)
-        self.exp_buffer = experience_buffer(buffer_size=1000000)
+        self.exp_buffer = experience_buffer(buffer_size=exp_buff_size)
         self.apply_update_op = self.target.applyUpdate(self.main, tau)
         self.init_op = tf.global_variables_initializer()
         self.saver = tf.train.Saver()
@@ -128,9 +118,13 @@ class Trainer:
                         checkpoint_episode_num)
         except KeyboardInterrupt:
             self.handle_interrupt()
+            raise
 
     def handle_interrupt(self):
-        with open(self.save_dir + '/' + self.pickle_file, 'w+') as p_file:
+        file_path = self.save_dir + '/'
+        if not os.path.exists(file_path):
+            os.makedirs(file_path)
+        with open(file_path + self.pickle_file, 'w+') as p_file:
             pcl.dump((self.exp_buffer, self.eps, self.eps_step), p_file)
         self.saver.save(self.session, self.save_dir)
 

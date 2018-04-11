@@ -86,3 +86,11 @@ def create_list_of_param_namespaces(param_namespace_with_lists):
         if good:
             final_list.append(ps)
     return final_list
+
+"""
+    Return dictionary without invalid function arguments.
+"""
+def getValidArgs(func, argsDict):
+    validArgs = func.__code__.co_varnames[:func.__code__.co_argcount]
+    return dict((key, value) for key, value in argsDict.items()
+                if key in validArgs)
